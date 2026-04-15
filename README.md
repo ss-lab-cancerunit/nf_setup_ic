@@ -21,10 +21,9 @@ mv fastq/*.zip qc
 multiqc -f -o qc/ qc
 ```
 
-This will run through the QC steps of the pipeline. The next stage (for example) would be to add the steps for `salmon` quantification. Since we want the ability to re-run the whole pipeline from scratch if required, we need to add the step to create the salmon index
+This will run through the QC steps of the pipeline. The next stage (for example) would be to add the steps for `salmon` quantification assuming we already have a suitable index.
 
 ```{bash}
-salmon index -i index/GRCh38_salmon -t ref_data/Homo_sapiens.GRCh38.cdna.fa
 salmon quant -i index/GRCh38_salmon --libType A -r fastq/SAMPLE1.fastq.gz -o quant/SAMPLE1
 ```
 
@@ -45,7 +44,7 @@ This is not particularly satisfactory as it is prone to typos or other errors. A
 
 As we have discussed, there are a number of options to extend our pipeline to multiple samples. These require more programming knowledge than we might be comfortable with. There are a few other issues with the script that we have created.
 
-- As pipeline steps have to be re-run in sequence; even if the initial pipeline steps ran sucessfully they will still be re-run every time
+- As pipeline steps have to be re-run in sequence; even if the initial pipeline steps ran successfully they will still be re-run every time
   - Sample 2 is processed only once Sample 1 is completed etc
 - There is no error-checking. 
   - We need to check that Sample 1 actually completed successfully
@@ -53,9 +52,9 @@ As we have discussed, there are a number of options to extend our pipeline to mu
 - The pipeline will not necessarily run on another environment as it will assume that the `fastqc`, `multiqc` and `salmon` tools can be found.
 
 
-It wasn't that long ago that each institute, research group would have it's own pipeline, often covering the same steps, that had to be configured slightly differently for the nuances of their HPC setup. It was extremely challenging to *exactly* reproduce work from another lab even if you had all the same software installed. 
+It wasn't too long ago that each institute and research group would have it's own pipeline, often covering the same steps, that had to be configured slightly differently for the nuances of their HPC setup. It was extremely challenging to *exactly* reproduce work from another lab even if you had all the same software installed. 
 
-Unless you are doing something very novel or bespoke **we would recommend people re-using existing analysis pipelines rather than writing their own**. We will look at an example using the nextflow workflow manager, although similar tools such as snakemake are also popular in Bioinformatics.
+Unless you are doing something very novel or bespoke **we would recommend people re-using existing analysis pipelines rather than writing their own**. We will look at an example using the nextflow workflow manager, although similar tools such as snakemake are also popular in Bioinformatics. Such tools take care of the tedious housekeeping and file management tasks associated with processing large amounts of data. They also employ clever ways of installing the required components.
 
 - [nextflow](https://www.nextflow.io/)
 - [snakemake](https://snakemake.readthedocs.io/en/stable/)
@@ -71,7 +70,7 @@ nextflow
 
 ## Running a nf-core pipeline
 
-In our opinion, nextflow is the prefered solution to running pipeline. It is particularly appealing as many popular Bioinformatics pipelines have already been written using nextflow and have been distributed as part of the nf-core project
+In our opinion, nextflow is the preferred solution to running pipelines for omics analysis. It is particularly appealing as many popular Bioinformatics pipelines have already been written using nextflow and have been distributed as part of the nf-core project
 
 - [nf.core homepage](https://nf-co.re/)
 
@@ -118,16 +117,16 @@ nextflow run nf-core/demo \
 		--outdir nf_out 
 ```
 
-The header of the script defines the HPC settings in the usual manner. I have picked a short runtime and low amount of RAM as this pipeline doesn't require much resource. A temporary folder also needs to be created where any temporary files required by the pipeline will be installed to. In particular it will download the software required for the pipeline.
+The header of the script defines the HPC settings in the usual manner. I have picked a short runtime and low amount of RAM as this pipeline doesn't require much resource. A temporary folder also needs to be created to define where any temporary files required by the pipeline will be installed to. 
 
 We then have to load the Nextflow module and make sure that our working directory is set to the directory that the job is submitted from. 
 
-The command to run and install the pipeline is `nextflow run` followed by the options for the particular pipeline that you want to use. The options shown here are quite typical to all nf-core pipelines and two are fairly self-explanatory:-
+The command to run and install the pipeline is `nextflow run` followed by any associated parameters for the particular pipeline that you want to use. The options shown here are quite typical to all nf-core pipelines and two are fairly self-explanatory:-
 
-- `input`; pointing to a csv file defining the locations of the input files (i.e. your fastq)
+- `input`; pointing to a csv file defining the locations of the input files (i.e. your fastq files)
 - `outdir`; where the outputs of the pipeline will be written to
 
-A short explanation of `profile` is that it tells nextflow how to behave on your institutes HPC. Users and institutes are able to create configuration files that can be distributed and reused and define things like what "containerisation" (see later) approach to use, and the job scheduler on the HPC. Fortunately we don't have to work these out for ourselves as someone has already created an imperial one. If you are curious you can see the contents on github
+A short explanation of `profile` is that it tells nextflow how to behave on your institutes HPC. Users and institutes are able to create configuration files that can be distributed and reused and define things like what "containerisation" (see later) approach to use, the job scheduler on the HPC and any memory, cpu or time limitations. Fortunately we don't have to work these out for ourselves as someone has already created an imperial one. If you are curious you can see the contents on github
 
 - [Imperial profile](https://github.com/nf-core/configs/blob/master/conf/imperial.config)
 
@@ -135,7 +134,7 @@ You will then need the sample sheet, a copy of which can also be found on the gi
 
 - [Link to sample sheet](demo_samplesheet.csv)
 
-This is comma-separated and defines the locations on our input fastq files, plus a sample identifier used to name the outputs. The entries in the `fastq_1` and `fastq_2` (which can also be blank) can either point to files on the HPC or remote files. Be aware that some pipelines will have different requirements for the columns in this file, so it's recommended to check the documentation.
+This is comma-separated and defines the locations on our input fastq files, plus a sample identifier used to name the outputs. Each row corresponds to a different biological sample. The entries in the `fastq_1` and `fastq_2` (which can also be blank) can either point to files on the HPC or remote files. Be aware that some pipelines will have different requirements for the columns in this file, so it's recommended to check the documentation.
 
 ```{bash}
 sample,fastq_1,fastq_2
@@ -167,7 +166,7 @@ Normally you might expect the installation of a pipeline comprising several piec
 -bash: fastqc: command not found
 ```
 
-Instead, software is distributed in the form of containers (or images). These are self-contained and isolated software environments, each containing a specific version of a piece of software. The `singularity` (now apptainer) software has been used to create these images and by default these are stored in the `work` folder. This is an alternative to the popular "docker" project which is able to used on HPC (which docker is usually not allowed to be used on HPC).
+Instead, software is distributed in the form of containers (or images). These are self-contained and isolated software environments, each containing a specific version of a piece of software. It is a technique to get around the "but the software works on my machine..." problem. The `singularity` (now apptainer) software has been used to create these images and by default these are stored in the `work` folder. This is an alternative to the popular "docker" project which is able to used on HPC (since docker is usually not allowed to be used on HPC).
 
 ```{bash}
 [mdunning@login-c cancer_fibroblasts_rnaseq]$ find work/ -name *.img -o -name *.sif
@@ -190,7 +189,11 @@ FastQC v0.12.1
 
 ### Running on your own machine
 
+A nice feature of nextflow is the portability between different computing environments. e.g. if the HPC becomes unavailable for a while you can keep running analyses on your own machine or the cloud with minimal setup. If running locally (i.e. on your own machine) you will probably want to install `docker` and you'll also need to install `nextflow` (which in turn requires `java`). The run command you can use is then:-
 
+```{bash}
+nextflow run nf-core/demo -profile docker --input demo_samplesheet.csv --outdir nf_out
+```
 
 ## Running an RNA-seq pipeline
 
@@ -221,7 +224,7 @@ The run command was mostly the same as before, except we are using `nf-core/rnas
 - [nf_samplesheet.csv](rnaseq/nf_samplesheet.csv)
 - [rnaseq_human.yml](rnaseq/rnaseq_human.yml)
 
-You can specify what reference data you want to use for alignment and annotation, and I have chosen to use Ensembl as my source. As I will want to re-use the same references I have created a small configuration file that points to the locations of these files. Having your parameters in a file such as this makes the job submission code a bit cleaner, and means you can re-analyse the same dataset with slightly different parameters by pointing to different config files. You can also reuse the same set of parameters on multiple projects.
+I have created a file called `rnaseq_human.yml` to define the parameters for the pipeline. Having your parameters in a file such as this makes the job submission code a bit cleaner, and means you can re-analyse the same dataset with slightly different parameters by pointing to different config files. You can also reuse the same set of parameters on multiple projects. You can specify what reference data you want to use for alignment and annotation, and I have chosen to use Ensembl as my source. As I will want to re-use the same references I have created a small configuration file that points to the locations of these files.
 
 I've also shown how to specify a particular alignment strategy (which is a bit redundant in this case as `star_salmon` is the default anyway) and in general you have quite a bit of flexibility with regards to the tools run at specific stages. If you need the results really quick, you can even turn off full genome alignment as use the `--skip_alignment` and `--pseudo-aligner salmon` options. For a full list of parameters you can consult the documentation:-
 
@@ -234,6 +237,17 @@ gtf: "ref_data/Homo_sapiens.GRCh38.115.gtf"
 aligner: "star_salmon"
 ```
 
+For this example, I could also create a separate parameter and job submission script for running the alignment-free (and hence quicker) pipeline. 
+
+```{bash}
+## rnaseq_human_quick.yml
+fasta: "ref_data/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa"
+gtf: "ref_data/Homo_sapiens.GRCh38.115.gtf"
+skip_alignment: true
+pseudo_aligner: "salmon"
+```
+
+Note that the choice of tools is dictated by what the community thinks is best-practice or gold standard. If you want to use some obscure tool from 10 years ago with only a couple of citations - you are probably out of luck. Each pipeline has active github and slack communities, so you can always suggest new tools if you have ideas...
 
 
 The job submission command is as follows. Notice that the RAM specification is still quite low. This resource refers to the `nextflow` command itself and **NOT** any of the subsequent jobs that it will submit. It is a good idea to keep this low (a few Gb) to keep the wait time for the pipeline to start to a minimum. The `walltime` might need to be quite long, as this refers to the total time taken to the run the pipeline, and not the time allocation of any specific tasks. 
@@ -271,5 +285,7 @@ One important point to note is that the pipeline will perform QC using `DESeq2`,
   + adding the flag `nextflow run nf-core/rnaseq -r 3.24.0` will make sure that the specific version 3.24.0 is used.
 - working directory location; The work folder that nextflow creates can get rather large. There is a space quote on the home folders on Imperial HPC of 1Tb. This can get quickly used up. The contents on the work folder are not usually required once the pipeline has finished, so are ideal to be put in a temporary folder. For a dataset of around 100 samples I found I had to set a different location for the working directory to stop all my home drive being used up.
   + `-w ${EPHEMERAL}/work/rnaseq-aging`
-- a shared location for reference genomes; 
+- a shared location for reference genomes; if you are processing many datasets you can keep your reference data in a central location rather than copying the same reference genomes for each project as we have done here
+- shared singularity folder: similar to above you can use the same location for each run to store the downloaded containers. This folder will have to be created in advance.
+  + `export NXF_SINGULARITY_CACHEDIR="$HOME/software/singularity_cache`
 - use version control (github); the configuration files, parameters and sample sheet used by nf-core are all really small and ideal for tracking with github for reproducibility. I also keep the execution traces and log files afterwards if needed. You can use the `.gitignore` file to make sure that large output files are excluded from github.
