@@ -1,0 +1,5 @@
+{
+  "fasta": "ref_data/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa",
+  "gtf": "ref_data/Homo_sapiens.GRCh38.115.gtf"
+}
+

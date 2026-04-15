@@ -67,11 +67,6 @@ ml load Nextflow
 nextflow
 ```
 
-## Distributing software using "Containerisation"
-
-![](programmerhumor-io-programming-memes-2fda9abcc7dc92e.jpe)
-
-Installing software on a HPC is **hard**, Containers offer an approach to capture and isolate entire computing environments. At their core, a container is built from an image, which is a lightweight, stand-alone, executable software package. This image is comprehensive, bundling everything necessary to run the piece of software consistently, regardless of the underlying infrastructure.
 
 ## Running a nf-core pipeline
 
@@ -122,15 +117,24 @@ nextflow run nf-core/demo \
 		--outdir nf_out 
 ```
 
-The header of the script defines the HPC settings in the usual manner. I have picked a short runtime and low amount of RAM as this pipeline doesn't require much resource. A temporary folder also needs to be created where any temporary files required by the pipeline will be installed to.
+The header of the script defines the HPC settings in the usual manner. I have picked a short runtime and low amount of RAM as this pipeline doesn't require much resource. A temporary folder also needs to be created where any temporary files required by the pipeline will be installed to. In particular it will download the software required for the pipeline.
 
 We then have to load the Nextflow module and make sure that our working directory is set to the directory that the job is submitted from. 
 
-The command to run and install the pipeline is `nextflow run` followed by the options for the particular pipeline that you want to use.
+The command to run and install the pipeline is `nextflow run` followed by the options for the particular pipeline that you want to use. The options shown here are quite typical to all nf-core pipelines and two are fairly self-explanatory:-
+
+- `input`; pointing to a csv file defining the locations of the input files (i.e. your fastq)
+- `outdir`; where the outputs of the pipeline will be written to
+
+A short explanation of `profile` is that it tells nextflow how to behave on your institutes HPC. Users and institutes are able to create configuration files that can be distributed and reused and define things like what "containerisation" (see later) approach to use, and the job scheduler on the HPC. Fortunately we don't have to work these out for ourselves as someone has already created an imperial one. If you are curious you can see the contents on github
+
+- [Imperial profile](https://github.com/nf-core/configs/blob/master/conf/imperial.config)
 
 You will then need the sample sheet, a copy of which can also be found on the github repo
 
 - [Link to sample sheet](demo_samplesheet.csv)
+
+This is comma-separated and defines the locations on our input fastq files, plus a sample identifier used to name the outputs. The entries in the `fastq_1` and `fastq_2` (which can also be blank) can either point to files on the HPC or remote files. Be aware that some pipelines will have different requirements for the columns in this file, so it's recommended to check the documentation.
 
 ```{bash}
 sample,fastq_1,fastq_2
@@ -140,147 +144,80 @@ SAMPLE3_SE,https://raw.githubusercontent.com/nf-core/test-datasets/viralrecon/il
 SAMPLE3_SE,https://raw.githubusercontent.com/nf-core/test-datasets/viralrecon/illumina/amplicon/sample2_R1.fastq.gz,
 ```
 
-
-
-A minimal number of options required to run an nf.core pipeline such as RNA-seq are:-
+We can then submit, and wait
 
 ```{bash}
+qsub nf_run.sh
+```
+
+When the pipeline is running, you can try a few different things to monitor the progress
+
+- using the `qstat -u $USER` command to see what is currently running. As nextflow is utilising the HPC you should see several jobs being run at the same time. You might also notice that different RAM and time requirements are specified for different jobs. 
+- the `nf_out/pipeline_info` folder (which may take a few moments to be created) contains an `execution_trace_` txt file which will be named with a time stamp. This is a log of what steps of the pipeline have been run.
+
+The log and error files get written to your working folder after the pipeline finishes, and all outputs are written to `nf_out`. 
+
+## Running an RNA-seq pipeline
+
+When using an nf-core pipeline for the first time you have the option of using a small test dataset that has been compiled. This can be activated by adding `test` to the profile argument:-
+
+```{bash}
+#!/bin/bash
+
+#PBS -lwalltime=01:00:00
+#PBS -lselect=1:mem=15gb
+#PBS -o nf.log
+#PBS -e nf.err
+#PBS -N nf_test
+
+module load Nextflow
+
+cd $PBS_O_WORKDIR
+
 nextflow run nf-core/rnaseq \
-                  --input samplesheet.csv \
-                  --outdir <OUTDIR> \
-                  --genome GRCh37 \
-                  -profile docker\
+		-profile test,imperial \
+		--outdir nf_out
 ```
 
-where:-
+The run command was mostly the same as before, except we are using `nf-core/rnaseq` instead of the demo pipeline. We didn't need to specify a sample sheet, as it automatically downloaded a small test dataset. In real-life there are a few more options you might want to change, so lets look at this using a published dataset. A number of example files are available that you can use as a template
 
-- `nf-core/rnaseq` is a reference to the pipeline that we want to run
-- `--input` is the location of a samplesheet defining the raw data to be processed
-- `--outdir` is a directory that will contain the final results of the pipeline
-- `genome` is the shorthand name for the genome to be used as a reference
-- `profile` defines how software included in the pipeline is to be downloaded/installed (**See later**)
+- [download.sh](rnaseq/download.sh)
+- [nf_run_full.sh](rnaseq/nf_run_full.sh)
+- [nf_samplesheet.csv](rnaseq/nf_samplesheet.csv)
+- [rnaseq_human.yml](rnaseq/rnaseq_human.yml)
 
-We have customised some of the options of the pipeline so run a reduced number of steps are run for the workshop, and using a custom genome containing a single chromosome.
+You can specify what reference data you want to use for alignment and annotation, and I have chosen to use Ensembl as my source. As I will want to re-use the same references I have created a small configuration file that points to the locations of these files.
 
 ```{bash}
-cat run_nextflow.sh
+## rnaseq_human.yml
+{
+  "fasta": "ref_data/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa",
+  "gtf": "ref_data/Homo_sapiens.GRCh38.115.gtf"
+}
 ```
 
-The particular steps that we have modified are as follows:-
 
-```
-##use a particular pipeline version
--r 3.8.1 \
-## Skip aligning to the whole genome
---skip_alignment \
-## Skip trimming read sequences
---skip_trimming \
-## use the salmon quantification tool
---pseudo_aligner salmon \
-## Use our own set of references rather than downloading
---fasta ref_data/Homo_sapiens.GRCh38.dna_rm.chromosome.22.fa \
---transcript_fasta ref_data/Homo_sapiens.GRCh38.cdna.chr22.fa \
---gtf ref_data/Homo_sapiens.GRCh38.108.chr22.gtf \
---salmon_index index/GRCh38_salmon \
-## restrict the amount of memory requested \
---max_memory 2GB
-```
-
-The files that we want to analyse are defined in a sample sheet. The format of the sheet is checked by the pipeline as one of the first steps. The column names have to match *exactly* what the pipeline expects.
+The job submission command is as follows. Notice that the RAM specification is still quite low. This resource refers to the `nextflow` command itself and **NOT** any of the subsequent jobs that it will submit. It is a good idea to keep this low (a few Gb) to keep the wait time for the pipeline to start to a minimum. The walltime might need to be quite long, as this refers to the total time taken to the run the pipeline, and not the time allocation of any specific tasks.
 
 ```{bash}
-cat nf_samplesheet.csv
-```
+#!/bin/bash
 
+#PBS -lwalltime=12:00:00
+#PBS -lselect=1:ncpus=4:mem=15gb
+#PBS -o nf_rnaseq_full.log
+#PBS -e nf_rnaseq_full.err
+#PBS -N nf_rnaseq_full
 
-We can run the pipeline as follows
+module load Nextflow
 
-```{bash}
-bash run_nextflow.sh
-```
+cd $PBS_O_WORKDIR
 
-
-The output from the workflow will be written to a directory `nf_results`, which doesn't need to exist before the pipeline has been run. You should also see that a `work` directory is created.
-
-
-## Exercise
-<div class="exercise">
-**Exercise**
-Run the script `run_nextflow.sh` (around ~5 to 10 minutes) and afterwards look at the output in the `nf_results` folder and familiarise yourself with the outputs. What extra steps have been performed in addition to the script that we created earlier?
-</div>
-
-## What software does nextflow use in it's pipeline?
-
-You should notice that the nf.core pipeline has produced quantification files for each sample, and also combined the `salmon` outputs into a single file. It also run some QC plots from the DESeq2 R package. However, R is not part of our software environment. We can see this by running the following commands which would usually report the path that R is located at, or run the command-line R.
-
-
-```
-which R
-R
-```
-
-nextflow has it's own way of installing and running software which does not depend on the operating system that is being used to run the pipeline. This is specified by this part of the run script.
-
-- [nf.core profile options](https://nf-co.re/rnaseq/3.9/usage#profile)
-
-```
--profile singularity 
-```
-
-In fact, we could have run the pipeline if we didn't have `salmon` and `fastqc` installed. The implication of this being that you can re-run the pipeline on your own machine or HPC environment with minimal software installation. The only dependancies are `nextflow` itself (which in turn requires `java`) and some *containerisation* or package management software such as `singularity`, `docker` or `conda`. This is a significantly easier requirement to fulfill than having to install each piece of software individually.
-
-<div class="information">
-If you are using a HPC environment you will probably want to keep the singularity option in the profile. 
-</div>
-
-## Re-running the pipeline
-
-<div class="exercise">
-**Exercise**
-There are two fastq files in our `fastq` folder that have not yet been analysed; `ERR732908` and `ERR732909`. Use the `nano` editor to modify the samplesheet `nf_samplesheet.csv` to include `ERR732908`, and re-run the pipeline. What do you notice about the time taken to run the pipeline?
-</div>
-
-
-The pipeline should be quicker this time around. This is because we had all the software downloaded and installed from the previous run. However, it still re-analysed the first seven samples from the samplesheet - which is not ideal. If we want a report on what analyses have been performed and how long they took we can look at a report from the command-line
-
-```
-## You will have to use auto-complete and choose the most-recent report
-cat nf_results/pipeline/execution_trace
-```
-There is also a HTML version of the report that we can view through the file system.
-
-## Resuming a pipeline
-
-Ideally, we would like the pipeline to detect what jobs have been run successfully and not repeat those jobs. The option `-resume` in nextflow will allow you to do this. (note the single `-` when adding this option). Modify the nextflow script with `nano` to contain the following lines at the top
-
-```
-nextflow run nf-core/rnaseq -profile singularity \
--resume \
--r 3.8.1 \
-....
+nextflow run nf-core/rnaseq -profile imperial \
+		--outdir nf_out \
+		--input nf_samplesheet.csv \
+		--aligner star_salmon \
+		-params-file rnaseq_human.yml \
+		-resume
 
 ```
 
-We can now edit the samplesheet again to process the sample `ERR732909` 
-
-```
-sample,fastq_1,fastq_2,strandedness
-ERR732901,fastq/ERR732901_sub.fastq.gz,,unstranded
-ERR732902,fastq/ERR732902_sub.fastq.gz,,unstranded
-ERR732903,fastq/ERR732903_sub.fastq.gz,,unstranded
-ERR732904,fastq/ERR732904_sub.fastq.gz,,unstranded
-ERR732905,fastq/ERR732905_sub.fastq.gz,,unstranded
-ERR732906,fastq/ERR732906_sub.fastq.gz,,unstranded
-ERR732907,fastq/ERR732907_sub.fastq.gz,,unstranded
-ERR732908,fastq/ERR732908_sub.fastq.gz,,unstranded
-ERR732909,fastq/ERR732909_sub.fastq.gz,,unstranded
-```
-
-
-and re-run the pipeline. 
-
-```
-bash run_nextflow.sh
-```
-
-The pipeline now runs significantly quicker because it detects that all the analyses have been completed and *cached*. If we check the `execution_trace` text file for this latest run it should say that most tasks were `CACHED` - meaning that the results from the previous analysis was used.
