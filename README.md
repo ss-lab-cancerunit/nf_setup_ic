@@ -197,13 +197,13 @@ You can specify what reference data you want to use for alignment and annotation
 ```
 
 
-The job submission command is as follows. Notice that the RAM specification is still quite low. This resource refers to the `nextflow` command itself and **NOT** any of the subsequent jobs that it will submit. It is a good idea to keep this low (a few Gb) to keep the wait time for the pipeline to start to a minimum. The walltime might need to be quite long, as this refers to the total time taken to the run the pipeline, and not the time allocation of any specific tasks.
+The job submission command is as follows. Notice that the RAM specification is still quite low. This resource refers to the `nextflow` command itself and **NOT** any of the subsequent jobs that it will submit. It is a good idea to keep this low (a few Gb) to keep the wait time for the pipeline to start to a minimum. The `walltime` might need to be quite long, as this refers to the total time taken to the run the pipeline, and not the time allocation of any specific tasks. The 12 hour limit here is probably unnecessary for this dataset as the pipeline took around 30 minutes in my last run.
 
 ```{bash}
 #!/bin/bash
 
 #PBS -lwalltime=12:00:00
-#PBS -lselect=1:ncpus=4:mem=15gb
+#PBS -lselect=1:ncpus=1:mem=5gb
 #PBS -o nf_rnaseq_full.log
 #PBS -e nf_rnaseq_full.err
 #PBS -N nf_rnaseq_full
@@ -221,3 +221,13 @@ nextflow run nf-core/rnaseq -profile imperial \
 
 ```
 
+I've added the `resume` flag to this pipeline run. This is a very goof habit to get into if you are running longer pipelines and / or processing many samples. 
+
+I've also shown how to specify a particular alignment strategy (which is a bit redundant in this case as `star_salmon` is the default anyway) and in general you have quite a bit of flexibility with regards to the tools run at specific stages. If you need the results really quick, you can even turn off full genome alignment as use the `--skip_alignment` and `--pseudo-aligner salmon` options. For a full list of parameters you can consult the documentation:-
+
+- [rnaseq pipeline parameters](https://nf-co.re/rnaseq/3.24.0/parameters/)
+
+### Tips for usage
+
+- save index
+- working directory location

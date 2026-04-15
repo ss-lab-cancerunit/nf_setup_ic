@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #PBS -lwalltime=12:00:00
-#PBS -lselect=1:ncpus=4:mem=15gb
+#PBS -lselect=1:ncpus=1:mem=5gb
 #PBS -o nf_rnaseq_full.log
 #PBS -e nf_rnaseq_full.err
 #PBS -N nf_rnaseq_full
