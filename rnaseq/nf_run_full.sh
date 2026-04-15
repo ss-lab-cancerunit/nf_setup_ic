@@ -13,6 +13,5 @@ cd $PBS_O_WORKDIR
 nextflow run nf-core/rnaseq -profile imperial \
 		--outdir nf_out \
 		--input nf_samplesheet.csv \
-		--aligner star_salmon \
 		-params-file rnaseq_human.yml \
 		-resume

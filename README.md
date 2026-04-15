@@ -24,8 +24,8 @@ multiqc -f -o qc/ qc
 This will run through the QC steps of the pipeline. The next stage (for example) would be to add the steps for `salmon` quantification. Since we want the ability to re-run the whole pipeline from scratch if required, we need to add the step to create the salmon index
 
 ```{bash}
-salmon index -i index/GRCh38_salmon -t ref_data/Homo_sapiens.GRCh38.cdna.chr22.fa
-salmon quant -i index/GRCh38_salmon --libType A -r fastq/ERR732901_sub.fastq.gz -o quant/ERR732901
+salmon index -i index/GRCh38_salmon -t ref_data/Homo_sapiens.GRCh38.cdna.fa
+salmon quant -i index/GRCh38_salmon --libType A -r fastq/SAMPLE1.fastq.gz -o quant/SAMPLE1
 ```
 
 Our pipeline is already quite short and is running on a small dataset, but can already take a little while to run and is using several pieces of software. The pipeline has been written in a linear fashion, so that each step must be completed in order. If our salmon alignment code needed to be changed we would have to re-run all the QC. This is not a huge problem here, but could be quite inefficient for a more-realistic dataset.
@@ -33,13 +33,13 @@ Our pipeline is already quite short and is running on a small dataset, but can a
 We also have a number of options for how to proceed with quantifying the remaining samples. The simplest approach copy-and-paste the `salmon quant` line with different sample names
 
 ```{bash}
-salmon quant -i index/GRCh38_salmon --libType A -r fastq/ERR732902_sub.fastq.gz -o quant/ERR732902
-salmon quant -i index/GRCh38_salmon --libType A -r fastq/ERR732903_sub.fastq.gz -o quant/ERR732903
+salmon quant -i index/GRCh38_salmon --libType A -r fastq/SAMPLE2.fastq.gz -o quant/SAMPLE2
+salmon quant -i index/GRCh38_salmon --libType A -r fastq/SAMPLE3.fastq.gz -o quant/SAMPLE3
 ###etc....
 
 ```
 
-This is not particularly satisfactory as it is prone to typos or other errors. An alternative might be to employ a *for loop*, which you might have [come across previously](https://datacarpentry.org/shell-genomics/04-redirection/index.html) or take advantage of parallelisation options on a HPC. 
+This is not particularly satisfactory as it is prone to typos or other errors. An alternative might be to employ a *for loop*, which you might have come across previously or take advantage of parallelisation options on a HPC. There is a better solution for tackling this, which also solves a lot of housekeeping tasks associated with processing large amounts of data.
 
 # Why do we need a workflow manager?
 
@@ -48,7 +48,8 @@ As we have discussed, there are a number of options to extend our pipeline to mu
 - As pipeline steps have to be re-run in sequence; even if the initial pipeline steps ran sucessfully they will still be re-run every time
   - Sample 2 is processed only once Sample 1 is completed etc
 - There is no error-checking. 
-  - We need to check that Sample 1 actually completed sucessfully
+  - We need to check that Sample 1 actually completed successfully
+- A lot of temporary files will be created that can take up a lot of space
 - The pipeline will not necessarily run on another environment as it will assume that the `fastqc`, `multiqc` and `salmon` tools can be found.
 
 
@@ -70,7 +71,7 @@ nextflow
 
 ## Running a nf-core pipeline
 
-In our opinion, nextflow is solution to running pipelines particular appealing as many popular Bioinformatics pipelines have already been written using nextflow and have been distributed as part of the nf.core project
+In our opinion, nextflow is the prefered solution to running pipeline. It is particularly appealing as many popular Bioinformatics pipelines have already been written using nextflow and have been distributed as part of the nf-core project
 
 - [nf.core homepage](https://nf-co.re/)
 
@@ -186,18 +187,22 @@ The run command was mostly the same as before, except we are using `nf-core/rnas
 - [nf_samplesheet.csv](rnaseq/nf_samplesheet.csv)
 - [rnaseq_human.yml](rnaseq/rnaseq_human.yml)
 
-You can specify what reference data you want to use for alignment and annotation, and I have chosen to use Ensembl as my source. As I will want to re-use the same references I have created a small configuration file that points to the locations of these files.
+You can specify what reference data you want to use for alignment and annotation, and I have chosen to use Ensembl as my source. As I will want to re-use the same references I have created a small configuration file that points to the locations of these files. I've also shown how to specify a particular alignment strategy (which is a bit redundant in this case as `star_salmon` is the default anyway) and in general you have quite a bit of flexibility with regards to the tools run at specific stages. If you need the results really quick, you can even turn off full genome alignment as use the `--skip_alignment` and `--pseudo-aligner salmon` options. For a full list of parameters you can consult the documentation:-
+
+- [rnaseq pipeline parameters](https://nf-co.re/rnaseq/3.24.0/parameters/)
 
 ```{bash}
 ## rnaseq_human.yml
 {
   "fasta": "ref_data/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa",
   "gtf": "ref_data/Homo_sapiens.GRCh38.115.gtf"
+  "aligner": "star_salmon"
 }
 ```
 
+Having your parameters in a file such as this makes the job submission code a bit cleaner, and means you can re-analyse the same dataset with slightly different parameters by pointing to different config files. You can also reuse the same set of parameters on multiple projects.
 
-The job submission command is as follows. Notice that the RAM specification is still quite low. This resource refers to the `nextflow` command itself and **NOT** any of the subsequent jobs that it will submit. It is a good idea to keep this low (a few Gb) to keep the wait time for the pipeline to start to a minimum. The `walltime` might need to be quite long, as this refers to the total time taken to the run the pipeline, and not the time allocation of any specific tasks. The 12 hour limit here is probably unnecessary for this dataset as the pipeline took around 30 minutes in my last run.
+The job submission command is as follows. Notice that the RAM specification is still quite low. This resource refers to the `nextflow` command itself and **NOT** any of the subsequent jobs that it will submit. It is a good idea to keep this low (a few Gb) to keep the wait time for the pipeline to start to a minimum. The `walltime` might need to be quite long, as this refers to the total time taken to the run the pipeline, and not the time allocation of any specific tasks. 
 
 ```{bash}
 #!/bin/bash
@@ -215,19 +220,22 @@ cd $PBS_O_WORKDIR
 nextflow run nf-core/rnaseq -profile imperial \
 		--outdir nf_out \
 		--input nf_samplesheet.csv \
-		--aligner star_salmon \
 		-params-file rnaseq_human.yml \
 		-resume
 
 ```
 
-I've added the `resume` flag to this pipeline run. This is a very goof habit to get into if you are running longer pipelines and / or processing many samples. 
+I've added the `resume` flag to this pipeline run. This is a very good habit to get into if you are running longer pipelines and / or processing many samples. In the case of a pipeline error, which could be due to HPC downtime rather than something you did wrong, the next time you run the pipeline it will commence at the same stage the previous run failed. i.e. if the QC has already been completed it won't bother repeating the QC steps. This can be a huge time saver.
 
-I've also shown how to specify a particular alignment strategy (which is a bit redundant in this case as `star_salmon` is the default anyway) and in general you have quite a bit of flexibility with regards to the tools run at specific stages. If you need the results really quick, you can even turn off full genome alignment as use the `--skip_alignment` and `--pseudo-aligner salmon` options. For a full list of parameters you can consult the documentation:-
 
-- [rnaseq pipeline parameters](https://nf-co.re/rnaseq/3.24.0/parameters/)
+One important point to note is that the pipeline will perform QC using `DESeq2`, but does not do any kind of differential expression or downstream analysis. You will still need to use R for this ;) You do however get all the outputs you will need in the `nf_out/star_salmon` folder including txt and rds files that can be loaded directly into R.
+
 
 ### Tips for usage
 
-- save index
-- working directory location
+- using a particular pipeline version; nextflow will automatically run the latest version of a pipeline that is available from github. This version is reported in the log file created by the pipeline. 
+  + adding the flag `nextflow run nf-core/rnaseq -r 3.24.0` will make sure that the specific version 3.24.0 is used.
+- working directory location; The work folder that nextflow creates can get rather large. There is a space quote on the home folders on Imperial HPC of 1Tb. This can get quickly used up. The contents on the work folder are not usually required once the pipeline has finished, so are ideal to be put in a temporary folder. For a dataset of around 100 samples I found I had to set a different location for the working directory to stop all my home drive being used up.
+  + `-w ${EPHEMERAL}/work/rnaseq-aging`
+- a shared location for reference genomes; 
+- use version control (github); the configuration files, parameters and sample sheet used by nf-core are all really small and ideal for tracking with github for reproducibility. I also keep the execution traces and log files afterwards if needed. You can use the `.gitignore` file to make sure that large output files are excluded from github.
