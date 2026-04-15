@@ -158,6 +158,40 @@ When the pipeline is running, you can try a few different things to monitor the 
 
 The log and error files get written to your working folder after the pipeline finishes, and all outputs are written to `nf_out`. 
 
+### A note about containers
+
+Normally you might expect the installation of a pipeline comprising several pieces of software to install each of these onto your system. This is not the case with nextflow, as you will see if you try and run `fastqc` or `multiqc` which are both used as part of the demo pipeline. 
+
+```{bash}
+[mdunning@login-c cancer_fibroblasts_rnaseq]$ fastqc
+-bash: fastqc: command not found
+```
+
+Instead, software is distributed in the form of containers (or images). These are self-contained and isolated software environments, each containing a specific version of a piece of software. The `singularity` (now apptainer) software has been used to create these images and by default these are stored in the `work` folder. This is an alternative to the popular "docker" project which is able to used on HPC (which docker is usually not allowed to be used on HPC).
+
+```{bash}
+[mdunning@login-c cancer_fibroblasts_rnaseq]$ find work/ -name *.img -o -name *.sif
+work/singularity/depot.galaxyproject.org-singularity-salmon-1.10.3--h6dccd9a_2.img
+work/singularity/community-cr-prod.seqera.io-docker-registry-v2-blobs-sha256-23-23651ffd6a171ef3ba867cb97ef615f6dd6be39158df9466fe92b5e844cd7d59-data.img
+work/singularity/depot.galaxyproject.org-singularity-python-3.9--1.img
+work/singularity/depot.galaxyproject.org-singularity-trim-galore-0.6.10--hdfd78af_2.img
+work/singularity/depot.galaxyproject.org-singularity-fastqc-0.12.1--hdfd78af_0.img
+work/singularity/depot.galaxyproject.org-singularity-samtools-1.22.1--h96c455f_0.img
+work/singularity/depot.galaxyproject.org-singularity-perl-5.26.2.img
+work/singularity/community-cr-prod.seqera.io-docker-registry-v2-blobs-sha256-26-268b4c9c6cbf8fa6606c9b7fd4fafce18bf2c931d1a809a0
+```
+
+If I *really* wanted to use the same version of `fastqc` as used in the pipeline I could do:-
+
+```{bash}
+[mdunning@login-c cancer_fibroblasts_rnaseq]$ singularity exec work/singularity/depot.galaxyproject.org-singularity-fastqc-0.12.1--hdfd78af_0.img fastqc --version
+FastQC v0.12.1
+```
+
+### Running on your own machine
+
+
+
 ## Running an RNA-seq pipeline
 
 When using an nf-core pipeline for the first time you have the option of using a small test dataset that has been compiled. This can be activated by adding `test` to the profile argument:-
