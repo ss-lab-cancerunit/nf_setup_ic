@@ -91,9 +91,54 @@ We will start by getting a small "demo" pipeline running, before progressing to 
 ![](https://raw.githubusercontent.com/nf-core/rnaseq/3.24.0//docs/images/nf-core-rnaseq_metro_map_grey_animated.svg)
 
 
+The RNA-seq pipeline looks (and indeed is) a lot more complicated, but in fact the setup and running is not much more challenging than the demo pipeline
+
+## Running the nf-core demo pipeline
 
 
+After logging into the HPC, create a directory (`mkdir`) where you want to run the demo pipeline. You need to create two files. The first is a job submission script, which I have called `nf_run.sh`. There is a copy of the script also on the github repo
 
+- [Link to submission script](nf_run.sh)
+
+```{bash}
+#!/bin/bash
+
+#PBS -lwalltime=01:00:00
+#PBS -lselect=1:mem=15gb
+#PBS -o nf.log
+#PBS -e nf.err
+#PBS -N nf_test
+
+module load Nextflow
+
+#make sure a tmp folder required by singularity exists
+mkdir -p /rds/general/user/${USER}/ephemeral/tmp/
+
+cd $PBS_O_WORKDIR
+
+nextflow run nf-core/demo \
+		-profile imperial \
+		--input demo_samplesheet.csv \
+		--outdir nf_out 
+```
+
+The header of the script defines the HPC settings in the usual manner. I have picked a short runtime and low amount of RAM as this pipeline doesn't require much resource. A temporary folder also needs to be created where any temporary files required by the pipeline will be installed to.
+
+We then have to load the Nextflow module and make sure that our working directory is set to the directory that the job is submitted from. 
+
+The command to run and install the pipeline is `nextflow run` followed by the options for the particular pipeline that you want to use.
+
+You will then need the sample sheet, a copy of which can also be found on the github repo
+
+- [Link to sample sheet](demo_samplesheet.csv)
+
+```{bash}
+sample,fastq_1,fastq_2
+SAMPLE1_PE,https://raw.githubusercontent.com/nf-core/test-datasets/viralrecon/illumina/amplicon/sample1_R1.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/viralrecon/illumina/amplicon/sample1_R2.fastq.gz
+SAMPLE2_PE,https://raw.githubusercontent.com/nf-core/test-datasets/viralrecon/illumina/amplicon/sample2_R1.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/viralrecon/illumina/amplicon/sample2_R2.fastq.gz
+SAMPLE3_SE,https://raw.githubusercontent.com/nf-core/test-datasets/viralrecon/illumina/amplicon/sample1_R1.fastq.gz,
+SAMPLE3_SE,https://raw.githubusercontent.com/nf-core/test-datasets/viralrecon/illumina/amplicon/sample2_R1.fastq.gz,
+```
 
 
 
