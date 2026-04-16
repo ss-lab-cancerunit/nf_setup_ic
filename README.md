@@ -226,7 +226,7 @@ The run command was mostly the same as before, except we are using `nf-core/rnas
 
 I have created a file called `rnaseq_human.yml` to define the parameters for the pipeline. Having your parameters in a file such as this makes the job submission code a bit cleaner, and means you can re-analyse the same dataset with slightly different parameters by pointing to different config files. You can also reuse the same set of parameters on multiple projects. You can specify what reference data you want to use for alignment and annotation, and I have chosen to use Ensembl as my source. As I will want to re-use the same references I have created a small configuration file that points to the locations of these files.
 
-I've also shown how to specify a particular alignment strategy (which is a bit redundant in this case as `star_salmon` is the default anyway) and in general you have quite a bit of flexibility with regards to the tools run at specific stages. If you need the results really quick, you can even turn off full genome alignment as use the `--skip_alignment` and `--pseudo-aligner salmon` options. For a full list of parameters you can consult the documentation:-
+I've also shown how to specify the particular alignment strategy to `star_rsem` from `star_salmon` (which is the one I tend to use in reality). In general you have quite a bit of flexibility with regards to the tools run at specific stages. If you need the results really quick, you can even turn off full genome alignment as use the `--skip_alignment` and `--pseudo-aligner salmon` options. For a full list of parameters you can consult the documentation:-
 
 - [rnaseq pipeline parameters](https://nf-co.re/rnaseq/3.24.0/parameters/)
 
@@ -234,7 +234,7 @@ I've also shown how to specify a particular alignment strategy (which is a bit r
 ## rnaseq_human.yml
 fasta: "ref_data/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa"
 gtf: "ref_data/Homo_sapiens.GRCh38.115.gtf"
-aligner: "star_salmon"
+aligner: "star_rsem"
 ```
 
 For this example, I could also create a separate parameter and job submission script for running the alignment-free (and hence quicker) pipeline. 
@@ -247,10 +247,10 @@ skip_alignment: true
 pseudo_aligner: "salmon"
 ```
 
-Note that the choice of tools is dictated by what the community thinks is best-practice or gold standard. If you want to use some obscure tool from 10 years ago with only a couple of citations - you are probably out of luck. Each pipeline has active github and slack communities, so you can always suggest new tools if you have ideas...
+Note that the choice of tools is dictated by what the community thinks is best-practice or gold standard. If you want to use some obscure tool from 10 years ago with only a couple of citations - you are probably out of luck. Similarly, only the most modern tools are supported and not deprecated tools such as `bowtie`. Each pipeline has active github and slack communities, so you can always suggest new tools if you have ideas...
 
 
-The job submission command is as follows. Notice that the RAM specification is still quite low. This resource refers to the `nextflow` command itself and **NOT** any of the subsequent jobs that it will submit. It is a good idea to keep this low (a few Gb) to keep the wait time for the pipeline to start to a minimum. The `walltime` might need to be quite long, as this refers to the total time taken to the run the pipeline, and not the time allocation of any specific tasks. 
+The job submission command is as follows. Notice that the RAM specification is still quite low. This resource refers to the `nextflow` command itself and **NOT** any of the subsequent jobs that it will submit. It is a good idea to keep this low (a few Gb) to keep the wait time for the pipeline to start to a minimum. The `walltime` might need to be quite long, as this refers to the total time taken to the run the pipeline, and not the time allocation of any specific tasks. In practice, I have found this particular dataset to be fully analysed in a few hours or less depending on HPC capacity.
 
 ```{bash}
 #!/bin/bash
